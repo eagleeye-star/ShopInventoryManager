@@ -129,6 +129,18 @@ function Modal({title,onClose,wide,children}){
         </div>
         {children}
       </div>
+
+      {showReset&&(
+        <ResetModal
+          adminPin={(db?.staff||[]).find(s=>s.role==="Owner")?.pin||""}
+          accent="#2563eb" cardBg="#fff"
+          onCancel={()=>setShowReset(false)}
+          onConfirm={()=>{
+            ["shopInventoryV5_license","shopinv_setup","shopInventoryV5_license_inst","shopInventoryV5_db"].forEach(k=>localStorage.removeItem(k));
+            setShowReset(false); window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -211,7 +223,11 @@ function ResetModal({ onConfirm, onCancel, adminPin, accent, cardBg }) {
   const [pin,  setPin]  = useState("");
   const [err,  setErr]  = useState("");
   const [step, setStep] = useState(1);
-  const check = () => { if (pin !== String(adminPin)) { setErr("Incorrect PIN."); return; } setStep(2); };
+  const check = () => {
+    if (!adminPin) { setErr("No admin PIN set yet. Complete the setup wizard first."); return; }
+    if (pin !== String(adminPin)) { setErr("Incorrect PIN. Try again."); setPin(""); return; }
+    setStep(2);
+  };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999, padding:20 }}>
       <div style={{ background: cardBg||"#1f2330", border:"1px solid #ef444455", borderRadius:14, padding:28, width:"min(94vw,400px)" }}>
@@ -615,7 +631,7 @@ export default function App(){
   const deleteCustomer=id=>{ setDb(prev=>({...prev,customers:(prev.customers||[]).filter(c=>c.id!==id)})); showToast("Customer removed.","warn"); close(); };
 
   // ── Staff CRUD ────────────────────────────────────────────────────────
-  const saveStaff=()=>{ const s={id:editing?editing.id:uid(),name:form.sname||"",pin:form.spin||"0000",role:form.srole||"Cashier"}; setDb(prev=>({...prev,staff:editing?prev.staff.map(x=>x.id===editing.id?s:x):[...(prev.staff||[]),s]})); showToast(editing?"Updated.":"Staff added."); close(); };
+  const saveStaff=()=>{ const s={id:editing?editing.id:uid(),name:form.sname||"",roles:(form.sroles||[form.srole||"Cashier"]).filter(Boolean),pin:form.spin||"0000",role:(form.sroles||[form.srole||"Cashier"])[0]||"Cashier"}; setDb(prev=>({...prev,staff:editing?prev.staff.map(x=>x.id===editing.id?s:x):[...(prev.staff||[]),s]})); showToast(editing?"Updated.":"Staff added."); close(); };
 
   // ── Wishlist ──────────────────────────────────────────────────────────
   const saveWishlist=()=>{ const w={id:uid(),customerName:form.wCustomer||"",phone:form.wPhone||"",productName:form.wProduct||"",size:form.wSize||"",color:form.wColor||"",notes:form.wNotes||"",date:today(),shopId:activeShop,fulfilled:false}; setDb(prev=>({...prev,wishlists:[...(prev.wishlists||[]),w]})); showToast("Wishlist entry saved."); close(); };
@@ -1012,6 +1028,14 @@ export default function App(){
         )}
 
         {/* ── STAFF ── */}
+        
+        {/* Reset — Admin Only */}
+        <div style={{background:"rgba(220,38,38,0.08)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:12,padding:20,marginTop:16}}>
+          <div style={{fontWeight:800,fontSize:15,color:"#ef4444",marginBottom:8}}>🗑 Reset All Data</div>
+          <p style={{fontSize:12,color:"#6b7280",marginBottom:14}}>Permanently deletes ALL shop data. Requires Owner PIN. Cannot be undone.</p>
+          <button onClick={()=>setShowReset(true)} style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",fontWeight:700,cursor:"pointer",fontSize:13}}>🗑 Reset App Data</button>
+        </div>
+
         {view==="staff"&&(
           <>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
